@@ -1,0 +1,33 @@
+{
+  "name": "rsa-cipher",
+  "version": "1.0.0",
+  "description": "A native Windows desktop RSA encryption/decryption app built with Electron and Node.js crypto.",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win portable"
+  },
+  "keywords": [
+    "rsa",
+    "encryption",
+    "electron",
+    "crypto"
+  ],
+  "author": "",
+  "license": "MIT",
+  "build": {
+    "appId": "com.example.rsacipher",
+    "productName": "RSA Cipher",
+    "win": {
+      "target": "portable",
+      "signAndEditExecutable": false
+    },
+    "portable": {
+      "artifactName": "RSA-Cipher.exe"
+    }
+  },
+  "devDependencies": {
+    "electron": "^31.0.0",
+    "electron-builder": "^24.13.3"
+  }
+}

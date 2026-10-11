@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self';" />
+  <title>RSA Cipher</title>
+  <style>
+    :root {
+      --bg: #000000;
+      --panel: #0a0a0a;
+      --border: #1f1f1f;
+      --border-hover: #3a3a3a;
+      --text: #f5f5f5;
+      --text-dim: #8a8a8a;
+      --accent: #ffffff;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Segoe UI", "Inter", system-ui, -apple-system, sans-serif;
+      font-size: 14px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .app {
+      max-width: 820px;
+      margin: 0 auto;
+      padding: 40px 28px 60px;
+      display: flex;
+      flex-direction: column;
+      gap: 26px;
+    }
+
+    header h1 {
+      font-size: 22px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      margin: 0;
+    }
+    header p { color: var(--text-dim); margin: 6px 0 0; font-size: 13px; }
+
+    .tabs { display: flex; gap: 8px; }
+    .tab {
+      flex: 1;
+      padding: 10px 12px;
+      background: var(--panel);
+      color: var(--text-dim);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+      transition: all 0.15s ease;
+    }
+    .tab:hover { border-color: var(--border-hover); color: var(--text); }
+    .tab.active { background: var(--accent); color: #000; border-color: var(--accent); }
+
+    .panel { display: none; flex-direction: column; gap: 16px; }
+    .panel.active { display: flex; }
+
+    label {
+      display: block;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: var(--text-dim);
+      margin-bottom: 6px;
+    }
+
+    textarea, select {
+      width: 100%;
+      background: var(--panel);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+      font-family: "Cascadia Code", "Consolas", "SF Mono", monospace;
+      font-size: 13px;
+      line-height: 1.5;
+      outline: none;
+      transition: border-color 0.15s ease;
+    }
+    textarea { resize: vertical; }
+    textarea:focus, select:focus { border-color: var(--border-hover); }
+    textarea::placeholder { color: #4a4a4a; }
+
+    textarea.output { min-height: 96px; white-space: pre-wrap; word-break: break-all; }
+    textarea.key { min-height: 140px; }
+
+    .btn {
+      padding: 11px 22px;
+      background: var(--accent);
+      color: #000;
+      border: 1px solid var(--accent);
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s ease, transform 0.05s ease;
+      white-space: nowrap;
+    }
+    .btn:hover { opacity: 0.85; }
+    .btn:active { transform: translateY(1px); }
+    .btn.ghost { background: transparent; color: var(--text); border: 1px solid var(--border); }
+    .btn.ghost:hover { border-color: var(--border-hover); }
+
+    .btn-row { display: flex; gap: 10px; margin-top: 6px; }
+
+    .output-block {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px;
+      background: var(--panel);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .output-block .head { display: flex; justify-content: space-between; align-items: center; }
+    .output-block .head label { margin: 0; }
+
+    .copy-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-dim);
+      cursor: pointer;
+      font-size: 12px;
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+    .copy-btn:hover { color: var(--text); background: var(--border); }
+
+    .status { font-size: 12px; color: var(--text-dim); min-height: 16px; }
+    .status.error { color: #ff6b6b; }
+    .status.success { color: #69db7c; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <h1>RSA Cipher</h1>
+      <p>Asymmetric encryption using a 2048-bit RSA key pair (OAEP / SHA-256).</p>
+    </header>
+
+    <div class="tabs">
+      <button class="tab active" data-tab="auto">Auto-Generate Key</button>
+      <button class="tab" data-tab="custom">Custom Key</button>
+    </div>
+
+    <!-- Auto-Generate Mode -->
+    <section class="panel active" id="panel-auto">
+      <div>
+        <label for="auto-plain">Plain Text</label>
+        <textarea id="auto-plain" class="output" rows="3" placeholder="Type the message you want to encrypt..."></textarea>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn" id="auto-encrypt">Encrypt &amp; Generate Key</button>
+        <button class="btn ghost" id="auto-clear">Clear</button>
+      </div>
+
+      <div class="status" id="auto-status"></div>
+
+      <div class="output-block">
+        <div class="head">
+          <label>Ciphertext (Base64)</label>
+          <button class="copy-btn" data-copy="auto-cipher">Copy</button>
+        </div>
+        <textarea id="auto-cipher" class="output" readonly placeholder="Ciphertext will appear here..."></textarea>
+      </div>
+
+      <div class="output-block">
+        <div class="head">
+          <label>Private Key (save this to decrypt)</label>
+          <button class="copy-btn" data-copy="auto-key">Copy</button>
+        </div>
+        <textarea id="auto-key" class="key" readonly placeholder="Your new private key (PEM) will appear here..."></textarea>
+      </div>
+    </section>
+
+    <!-- Custom Key Mode -->
+    <section class="panel" id="panel-custom">
+      <div>
+        <label for="custom-action">Action</label>
+        <select id="custom-action">
+          <option value="encrypt">Encrypt (using a Public Key)</option>
+          <option value="decrypt">Decrypt (using a Private Key)</option>
+        </select>
+      </div>
+
+      <div>
+        <label for="custom-key" id="custom-key-label">Public Key (PEM)</label>
+        <textarea id="custom-key" class="key" placeholder="-----BEGIN PUBLIC KEY-----&#10;...&#10;-----END PUBLIC KEY-----"></textarea>
+      </div>
+
+      <div>
+        <label for="custom-data" id="custom-data-label">Plain Text</label>
+        <textarea id="custom-data" class="output" rows="3" placeholder="Enter text..."></textarea>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn" id="custom-run">Run</button>
+        <button class="btn ghost" id="custom-clear">Clear</button>
+      </div>
+
+      <div class="status" id="custom-status"></div>
+
+      <div class="output-block">
+        <div class="head">
+          <label id="custom-output-label">Result</label>
+          <button class="copy-btn" data-copy="custom-output">Copy</button>
+        </div>
+        <textarea id="custom-output" class="output" readonly placeholder="Result will appear here..."></textarea>
+      </div>
+    </section>
+  </div>
+
+</body>
+</html>
