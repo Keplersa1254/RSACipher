@@ -1,7 +1,29 @@
-// Renderer process: handles all UI interactions and calls the preload API.
-
+// Renderer: UI wiring + calls to the crypto API exposed by preload.js.
 const $ = (id) => document.getElementById(id);
-const api = window.rsaAPI;
+const api = window.rsa;
+
+// Defensive: if the preload bridge failed, show a clear message.
+if (!api) {
+  alert('App failed to start: the crypto bridge is missing. Please reinstall.');
+  throw new Error('window.rsa is not available');
+}
+
+function status(el, msg, kind) {
+  el.textContent = msg || '';
+  el.className = 'status' + (kind ? ' ' + kind : '');
+}
+
+// ---- Theme toggle (dark <-> light) ----
+const html = document.documentElement;
+function setTheme(light) {
+  html.classList.toggle('light', light);
+  $('theme').textContent = light ? '☀️' : '🌙';
+  try { localStorage.setItem('rsa-theme', light ? 'light' : 'dark'); } catch (e) {}
+}
+let saved = 'dark';
+try { saved = localStorage.getItem('rsa-theme') || 'dark'; } catch (e) {}
+setTheme(saved === 'light');
+$('theme').addEventListener('click', () => setTheme(!html.classList.contains('light')));
 
 // ---- Tab switching ----
 document.querySelectorAll('.tab').forEach((tab) => {
@@ -13,99 +35,76 @@ document.querySelectorAll('.tab').forEach((tab) => {
   });
 });
 
-function setStatus(el, message, kind) {
-  el.textContent = message;
-  el.className = 'status' + (kind ? ' ' + kind : '');
-}
-
 // ---- Copy buttons ----
-document.querySelectorAll('.copy-btn').forEach((btn) => {
+document.querySelectorAll('.copy').forEach((btn) => {
   btn.addEventListener('click', async () => {
-    const target = $(btn.dataset.copy);
-    if (!target.value) return;
+    const el = $(btn.dataset.copy);
+    if (!el.value) return;
     try {
-      await navigator.clipboard.writeText(target.value);
-      const original = btn.textContent;
+      await navigator.clipboard.writeText(el.value);
+      const old = btn.textContent;
       btn.textContent = 'Copied!';
-      setTimeout(() => (btn.textContent = original), 1200);
+      setTimeout(() => (btn.textContent = old), 1000);
     } catch (e) {
-      /* clipboard may be unavailable; ignore */
+      el.select(); // fallback for environments without clipboard access
     }
   });
 });
 
-// ---- Auto-Generate Mode ----
-$('auto-clear').addEventListener('click', () => {
-  $('auto-plain').value = '';
-  $('auto-cipher').value = '';
-  $('auto-key').value = '';
-  setStatus($('auto-status'), '');
+// ---- Auto-Generate tab ----
+$('a-clear').addEventListener('click', () => {
+  $('a-in').value = '';
+  $('a-ct').value = '';
+  $('a-key').value = '';
+  status($('a-status'), '');
 });
 
-$('auto-encrypt').addEventListener('click', async () => {
-  const plain = $('auto-plain').value;
-  if (!plain) {
-    setStatus($('auto-status'), 'Please enter some plain text first.', 'error');
-    return;
-  }
-  setStatus($('auto-status'), 'Generating 2048-bit key pair and encrypting...');
+$('a-go').addEventListener('click', async () => {
+  const text = $('a-in').value;
+  if (!text) return status($('a-status'), 'Enter some text first.', 'error');
+  status($('a-status'), 'Generating key and encrypting...');
   try {
-    const { ciphertext, privateKey } = await api.autoEncrypt(plain);
-    $('auto-cipher').value = ciphertext;
-    $('auto-key').value = privateKey;
-    setStatus($('auto-status'), 'Done. A new key pair was generated for this message.', 'success');
+    const { ciphertext, privateKey } = await api.auto(text);
+    $('a-ct').value = ciphertext;
+    $('a-key').value = privateKey;
+    status($('a-status'), 'Done. Save the private key to decrypt later.', 'ok');
   } catch (err) {
-    setStatus($('auto-status'), 'Encryption failed: ' + err.message, 'error');
+    status($('a-status'), 'Error: ' + err.message, 'error');
   }
 });
 
-// ---- Custom Key Mode ----
-const actionSelect = $('custom-action');
-function syncCustomLabels() {
-  const isEncrypt = actionSelect.value === 'encrypt';
-  $('custom-key-label').textContent = isEncrypt ? 'Public Key (PEM)' : 'Private Key (PEM)';
-  $('custom-data-label').textContent = isEncrypt ? 'Plain Text' : 'Ciphertext (Base64)';
-  $('custom-key').placeholder = isEncrypt
-    ? '-----BEGIN PUBLIC KEY-----\n...\n-----END PUBLIC KEY-----'
-    : '-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----';
-  $('custom-data').placeholder = isEncrypt ? 'Enter text to encrypt...' : 'Paste base64 ciphertext to decrypt...';
-  $('custom-output-label').textContent = isEncrypt ? 'Ciphertext (Base64)' : 'Plain Text';
+// ---- Custom Key tab ----
+const mode = $('c-mode');
+function syncMode() {
+  const enc = mode.value === 'encrypt';
+  $('c-key-label').textContent = enc ? 'Public key (PEM)' : 'Private key (PEM)';
+  $('c-in-label').textContent = enc ? 'Plain text' : 'Ciphertext (Base64)';
+  $('c-key').placeholder = enc ? '-----BEGIN PUBLIC KEY----- ...' : '-----BEGIN PRIVATE KEY----- ...';
+  $('c-in').placeholder = enc ? 'Text to encrypt...' : 'Paste base64 ciphertext...';
+  $('c-out-label').textContent = enc ? 'Ciphertext (Base64)' : 'Plain text';
 }
-actionSelect.addEventListener('change', syncCustomLabels);
-syncCustomLabels();
+mode.addEventListener('change', syncMode);
+syncMode();
 
-$('custom-clear').addEventListener('click', () => {
-  $('custom-key').value = '';
-  $('custom-data').value = '';
-  $('custom-output').value = '';
-  setStatus($('custom-status'), '');
+$('c-clear').addEventListener('click', () => {
+  $('c-key').value = '';
+  $('c-in').value = '';
+  $('c-out').value = '';
+  status($('c-status'), '');
 });
 
-$('custom-run').addEventListener('click', async () => {
-  const key = $('custom-key').value.trim();
-  const data = $('custom-data').value;
-  if (!key) {
-    setStatus($('custom-status'), 'Please provide a key.', 'error');
-    return;
-  }
-  if (!data.trim()) {
-    setStatus($('custom-status'), 'Please provide input data.', 'error');
-    return;
-  }
-
-  const isEncrypt = actionSelect.value === 'encrypt';
-  setStatus($('custom-status'), isEncrypt ? 'Encrypting...' : 'Decrypting...');
+$('c-go').addEventListener('click', async () => {
+  const key = $('c-key').value.trim();
+  const data = $('c-in').value.trim();
+  if (!key) return status($('c-status'), 'Paste a key first.', 'error');
+  if (!data) return status($('c-status'), 'Enter the input data.', 'error');
+  status($('c-status'), mode.value === 'encrypt' ? 'Encrypting...' : 'Decrypting...');
   try {
-    let result;
-    if (isEncrypt) {
-      result = await api.encrypt(key, data);
-      $('custom-output').value = result.ciphertext;
-    } else {
-      result = await api.decrypt(key, data.trim());
-      $('custom-output').value = result.plaintext;
-    }
-    setStatus($('custom-status'), 'Done.', 'success');
+    const enc = mode.value === 'encrypt';
+    const res = enc ? await api.encrypt(key, data) : await api.decrypt(key, data);
+    $('c-out').value = enc ? res.ciphertext : res.plaintext;
+    status($('c-status'), 'Done.', 'ok');
   } catch (err) {
-    setStatus($('custom-status'), 'Operation failed: ' + err.message, 'error');
+    status($('c-status'), 'Error: ' + err.message, 'error');
   }
 });

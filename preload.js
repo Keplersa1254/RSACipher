@@ -1,8 +1,9 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
-// Securely expose a minimal API from the main process to the renderer.
-contextBridge.exposeInMainWorld('rsaAPI', {
-  autoEncrypt: (plainText) => ipcRenderer.invoke('rsa:auto-encrypt', plainText),
-  encrypt: (publicKeyPem, plainText) => ipcRenderer.invoke('rsa:encrypt', publicKeyPem, plainText),
-  decrypt: (privateKeyPem, ciphertextB64) => ipcRenderer.invoke('rsa:decrypt', privateKeyPem, ciphertextB64)
+// Minimal, safe bridge from the renderer UI to the crypto IPC handlers.
+contextBridge.exposeInMainWorld('rsa', {
+  auto: (text) => ipcRenderer.invoke('rsa:auto', text),
+  encrypt: (pubPem, text) => ipcRenderer.invoke('rsa:encrypt', pubPem, text),
+  decrypt: (privPem, ct) => ipcRenderer.invoke('rsa:decrypt', privPem, ct)
 });
+
