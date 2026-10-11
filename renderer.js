@@ -13,6 +13,15 @@ function status(el, msg, kind) {
   el.className = 'status' + (kind ? ' ' + kind : '');
 }
 
+// Strip Electron's "Error invoking remote method '...': Error: " wrapper so the
+// user only sees the clear message produced in main.js.
+function cleanErr(err) {
+  let m = String(err && err.message ? err.message : err);
+  const i = m.lastIndexOf('Error: ');
+  if (i !== -1) m = m.slice(i + 7);
+  return m;
+}
+
 // ---- Theme toggle (dark <-> light) ----
 const html = document.documentElement;
 function setTheme(light) {
@@ -52,10 +61,19 @@ document.querySelectorAll('.copy').forEach((btn) => {
 });
 
 // ---- Auto-Generate tab ----
+const aIn = $('a-in');
+const aCount = $('a-count');
+function updateCount() {
+  aCount.textContent = String(aIn.value.length);
+}
+aIn.addEventListener('input', updateCount);
+updateCount();
+
 $('a-clear').addEventListener('click', () => {
-  $('a-in').value = '';
+  aIn.value = '';
   $('a-ct').value = '';
   $('a-key').value = '';
+  updateCount();
   status($('a-status'), '');
 });
 
@@ -69,7 +87,7 @@ $('a-go').addEventListener('click', async () => {
     $('a-key').value = privateKey;
     status($('a-status'), 'Done. Save the private key to decrypt later.', 'ok');
   } catch (err) {
-    status($('a-status'), 'Error: ' + err.message, 'error');
+    status($('a-status'), cleanErr(err), 'error');
   }
 });
 
@@ -105,6 +123,6 @@ $('c-go').addEventListener('click', async () => {
     $('c-out').value = enc ? res.ciphertext : res.plaintext;
     status($('c-status'), 'Done.', 'ok');
   } catch (err) {
-    status($('c-status'), 'Error: ' + err.message, 'error');
+    status($('c-status'), cleanErr(err), 'error');
   }
 });

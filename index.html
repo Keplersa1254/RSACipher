@@ -62,6 +62,8 @@
     .status { font-size:12px; color:var(--dim); min-height:16px; margin-top:10px; }
     .status.error { color:var(--err); } .status.ok { color:var(--ok); }
     .hint { font-size:11px; color:var(--dim); margin-top:4px; }
+    .hint code { font-family:var(--mono); font-size:10px; background:var(--panel); border:1px solid var(--border); border-radius:4px; padding:0 3px; }
+    #a-count { font-family:var(--mono); }
   </style>
 </head>
 <body>
@@ -79,7 +81,8 @@
     <!-- Auto-Generate -->
     <div class="panel active" id="panel-auto">
       <label for="a-in">Your message</label>
-      <textarea id="a-in" class="msg" rows="3" placeholder="Type text to encrypt..."></textarea>
+      <textarea id="a-in" class="msg" rows="3" placeholder="Type text to encrypt..." maxlength="190"></textarea>
+      <div class="hint"><span id="a-count">0</span>/190 characters (RSA limit)</div>
       <div class="row">
         <button class="btn" id="a-go">Encrypt</button>
         <button class="btn ghost" id="a-clear">Clear</button>
@@ -96,7 +99,7 @@
         <label for="a-key">Private key</label>
         <textarea id="a-key" class="key" readonly placeholder="Private key appears here..."></textarea>
         <button class="copy" data-copy="a-key">Copy</button>
-        <div class="hint">Keep this private key safe — you need it to decrypt.</div>
+        <div class="hint">This is your secret key. The <code>-----BEGIN/END-----</code> lines are part of it — keep the whole thing safe, you need it to decrypt.</div>
       </div>
     </div>
 
